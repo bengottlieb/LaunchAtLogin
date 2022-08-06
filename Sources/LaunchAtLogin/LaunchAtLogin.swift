@@ -15,27 +15,42 @@ public enum LaunchAtLogin {
 
 	private static let id = "\(Bundle.main.bundleIdentifier!)-LaunchAtLoginHelper"
 
+	public func openSettings() {
+		if #available(macOS 13, *) {
+			SMAppService.openSystemSettingsLoginItems()
+		}
+	}
+
 	public static var isEnabled: Bool {
 		get {
-			guard let jobs = (LaunchAtLogin.self as DeprecationWarningWorkaround.Type).jobsDict else {
-				return false
+			if #available(macOS 13, *) {
+				let service = SMAppService.loginItem(identifier: id)
+				
+				return service.status == .enabled
+			} else {
+				guard let jobs = (LaunchAtLogin.self as DeprecationWarningWorkaround.Type).jobsDict else {
+					return false
+				}
+				
+				let job = jobs.first { ($0["Label"] as? String) == id }
+				
+				return job?["OnDemand"] as? Bool ?? false
 			}
-
-			let job = jobs.first { ($0["Label"] as? String) == id }
-
-			return job?["OnDemand"] as? Bool ?? false
 		}
 		set {
-			if #available(macOS 10.15, *) {
-				observable.objectWillChange.send()
-			}
-
-			kvo.willChangeValue(for: \.isEnabled)
-			SMLoginItemSetEnabled(id as CFString, newValue)
-			kvo.didChangeValue(for: \.isEnabled)
-
-			if #available(macOS 10.15, *) {
-				_publisher.send(newValue)
+			if #available(macOS 13, *) {
+			} else {
+				if #available(macOS 10.15, *) {
+					observable.objectWillChange.send()
+				}
+				
+				kvo.willChangeValue(for: \.isEnabled)
+				SMLoginItemSetEnabled(id as CFString, newValue)
+				kvo.didChangeValue(for: \.isEnabled)
+				
+				if #available(macOS 10.15, *) {
+					_publisher.send(newValue)
+				}
 			}
 		}
 	}
